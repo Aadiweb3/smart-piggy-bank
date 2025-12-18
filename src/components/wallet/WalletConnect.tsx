@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Wallet, ChevronDown, ExternalLink, Copy, LogOut } from 'lucide-react';
-import { useWalletStore } from '@/store/walletStore';
+import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,17 +10,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { useWalletStore } from '@/store/walletStore';
+import { monadTestnet } from '@/config/wagmi';
 
 export default function WalletConnect() {
-  const { isConnected, address, balance, connect, disconnect } = useWalletStore();
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, isPending } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { data: balanceData } = useBalance({ address });
+  
+  const { connect: storeConnect, disconnect: storeDisconnect } = useWalletStore();
 
-  const handleConnect = () => {
-    // Simulate wallet connection
-    const mockAddress = '0x' + Math.random().toString(16).slice(2, 10) + '...' + Math.random().toString(16).slice(2, 6);
-    connect(mockAddress);
-    toast.success('Wallet connected!', {
-      description: 'Connected to Monad Testnet',
-    });
+  // Sync wagmi state with zustand store
+  useEffect(() => {
+    if (isConnected && address) {
+      storeConnect(address);
+    } else {
+      storeDisconnect();
+    }
+  }, [isConnected, address, storeConnect, storeDisconnect]);
+
+  const handleConnect = async () => {
+    const injectedConnector = connectors.find((c) => c.id === 'injected');
+    if (injectedConnector) {
+      try {
+        connect({ connector: injectedConnector });
+      } catch (error) {
+        toast.error('Failed to connect wallet');
+      }
+    } else {
+      toast.error('MetaMask not found. Please install MetaMask.');
+    }
   };
 
   const handleDisconnect = () => {
@@ -35,14 +56,25 @@ export default function WalletConnect() {
     }
   };
 
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const openExplorer = () => {
+    if (address) {
+      window.open(`${monadTestnet.blockExplorers.default.url}/address/${address}`, '_blank');
+    }
+  };
+
   if (!isConnected) {
     return (
       <Button
         onClick={handleConnect}
+        disabled={isPending}
         className="btn-primary gap-2"
       >
         <Wallet className="w-4 h-4" />
-        Connect Wallet
+        {isPending ? 'Connecting...' : 'Connect Wallet'}
       </Button>
     );
   }
@@ -69,7 +101,9 @@ export default function WalletConnect() {
           {/* Address */}
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-primary" />
-            <span className="font-mono text-sm text-foreground">{address}</span>
+            <span className="font-mono text-sm text-foreground">
+              {address && formatAddress(address)}
+            </span>
           </div>
           
           <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -80,7 +114,7 @@ export default function WalletConnect() {
         <div className="px-3 py-2">
           <p className="text-sm text-muted-foreground">Balance</p>
           <p className="text-lg font-display font-bold text-foreground">
-            ${balance.toLocaleString()} USDC
+            {balanceData ? `${(Number(balanceData.value) / 10 ** balanceData.decimals).toFixed(4)} ${balanceData.symbol}` : '0 MON'}
           </p>
         </div>
         
@@ -91,7 +125,7 @@ export default function WalletConnect() {
           Copy Address
         </DropdownMenuItem>
         
-        <DropdownMenuItem className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={openExplorer} className="gap-2 cursor-pointer">
           <ExternalLink className="w-4 h-4" />
           View on Explorer
         </DropdownMenuItem>
