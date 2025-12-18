@@ -38,26 +38,25 @@ interface WalletState {
   // Actions
   connect: (address: string) => void;
   disconnect: () => void;
-  deposit: (amount: number) => void;
-  withdraw: (amount: number) => void;
+  setTotalDeposited: (amount: number) => void;
+  setBalance: (balance: number) => void;
+  setProtocols: (protocols: Protocol[]) => void;
   setOptimizerStatus: (status: 'scanning' | 'analyzing' | 'rebalancing' | 'idle') => void;
   addActivity: (activity: Omit<ActivityItem, 'id' | 'timestamp'>) => void;
 }
 
-const mockProtocols: Protocol[] = [
-  { id: '1', name: 'Aave V3', apy: 8.5, allocation: 35, risk: 'Low', status: 'Active', color: '#7F5AF0' },
-  { id: '2', name: 'Compound', apy: 7.2, allocation: 25, risk: 'Low', status: 'Active', color: '#2CB67D' },
-  { id: '3', name: 'Yearn Finance', apy: 12.1, allocation: 20, risk: 'Medium', status: 'Rebalancing', color: '#FF8906' },
-  { id: '4', name: 'Convex', apy: 9.8, allocation: 15, risk: 'Medium', status: 'Active', color: '#3B82F6' },
-  { id: '5', name: 'Curve', apy: 6.5, allocation: 5, risk: 'Low', status: 'Active', color: '#EC4899' },
+const defaultProtocols: Protocol[] = [
+  { id: '1', name: 'Strategy A', apy: 8.5, allocation: 40, risk: 'Low', status: 'Active', color: '#7F5AF0' },
+  { id: '2', name: 'Strategy B', apy: 7.2, allocation: 35, risk: 'Low', status: 'Active', color: '#2CB67D' },
+  { id: '3', name: 'Strategy C', apy: 9.1, allocation: 25, risk: 'Medium', status: 'Active', color: '#FF8906' },
 ];
 
 const mockActivities: ActivityItem[] = [
   { id: '1', type: 'scan', message: 'Scanning yield opportunities...', timestamp: new Date(Date.now() - 1000 * 60) },
-  { id: '2', type: 'increase', message: 'Yearn Finance APY increased to 12.1%', timestamp: new Date(Date.now() - 1000 * 120) },
-  { id: '3', type: 'rebalance', message: 'Reallocating 5% from Curve to Yearn', timestamp: new Date(Date.now() - 1000 * 180) },
+  { id: '2', type: 'increase', message: 'Strategy C APY increased to 9.1%', timestamp: new Date(Date.now() - 1000 * 120) },
+  { id: '3', type: 'rebalance', message: 'Reallocating funds across strategies', timestamp: new Date(Date.now() - 1000 * 180) },
   { id: '4', type: 'execute', message: 'Transaction executed on Monad (0.001 gas)', timestamp: new Date(Date.now() - 1000 * 240) },
-  { id: '5', type: 'scan', message: 'Monitoring 47 protocols...', timestamp: new Date(Date.now() - 1000 * 300) },
+  { id: '5', type: 'scan', message: 'Monitoring 3 strategies...', timestamp: new Date(Date.now() - 1000 * 300) },
 ];
 
 const mockYieldHistory: YieldData[] = [
@@ -76,12 +75,12 @@ const mockYieldHistory: YieldData[] = [
 export const useWalletStore = create<WalletState>((set, get) => ({
   isConnected: false,
   address: null,
-  balance: 5000,
+  balance: 0,
   totalDeposited: 0,
-  currentAPY: 9.2,
+  currentAPY: 8.3,
   todayYield: 0,
   monthlyEstimate: 0,
-  protocols: mockProtocols,
+  protocols: defaultProtocols,
   activities: mockActivities,
   yieldHistory: mockYieldHistory,
   optimizerStatus: 'idle',
@@ -89,38 +88,29 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   connect: (address) => set({ 
     isConnected: true, 
     address,
-    totalDeposited: 2500,
-    todayYield: 2.34,
-    monthlyEstimate: 71.25,
   }),
   
   disconnect: () => set({ 
     isConnected: false, 
     address: null,
     totalDeposited: 0,
+    balance: 0,
     todayYield: 0,
     monthlyEstimate: 0,
   }),
-  
-  deposit: (amount) => {
-    const { totalDeposited, balance, currentAPY } = get();
-    const newDeposit = totalDeposited + amount;
+
+  setTotalDeposited: (amount) => {
+    const { currentAPY } = get();
     set({
-      totalDeposited: newDeposit,
-      balance: balance - amount,
-      monthlyEstimate: (newDeposit * (currentAPY / 100)) / 12,
+      totalDeposited: amount,
+      todayYield: (amount * (currentAPY / 100)) / 365,
+      monthlyEstimate: (amount * (currentAPY / 100)) / 12,
     });
   },
-  
-  withdraw: (amount) => {
-    const { totalDeposited, balance, currentAPY } = get();
-    const newDeposit = Math.max(0, totalDeposited - amount);
-    set({
-      totalDeposited: newDeposit,
-      balance: balance + amount,
-      monthlyEstimate: (newDeposit * (currentAPY / 100)) / 12,
-    });
-  },
+
+  setBalance: (balance) => set({ balance }),
+
+  setProtocols: (protocols) => set({ protocols }),
   
   setOptimizerStatus: (status) => set({ optimizerStatus: status }),
   
