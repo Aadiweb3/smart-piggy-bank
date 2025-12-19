@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowDownRight, Zap, Info, Loader2 } from 'lucide-react';
+import { X, ArrowDownRight, Zap, Info } from 'lucide-react';
 import { useWalletStore } from '@/store/walletStore';
-import { useWithdraw, useUserDeposits } from '@/hooks/useVaultContract';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 
 interface WithdrawModalProps {
   isOpen: boolean;
@@ -14,51 +12,20 @@ interface WithdrawModalProps {
 
 export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const [amount, setAmount] = useState('');
-  const { userDeposits } = useUserDeposits();
-  const { 
-    withdraw, 
-    isWithdrawing, 
-    isConfirming, 
-    isConfirmed,
-    reset 
-  } = useWithdraw();
+  const { totalDeposited, withdraw } = useWalletStore();
 
   const numAmount = parseFloat(amount) || 0;
-  const isProcessing = isWithdrawing || isConfirming;
-
-  useEffect(() => {
-    if (isConfirmed) {
-      toast.success('Withdrawal successful!', {
-        description: `Successfully withdrew ${numAmount} USDT from Smart Piggy Bank`,
-      });
-      setAmount('');
-      reset();
-      onClose();
-    }
-  }, [isConfirmed, numAmount, reset, onClose]);
 
   const handleWithdraw = () => {
-    if (numAmount > 0 && numAmount <= userDeposits) {
+    if (numAmount > 0 && numAmount <= totalDeposited) {
       withdraw(numAmount);
+      onClose();
+      setAmount('');
     }
   };
 
   const handleMaxClick = () => {
-    setAmount(userDeposits.toString());
-  };
-
-  const handleClose = () => {
-    if (!isProcessing) {
-      reset();
-      setAmount('');
-      onClose();
-    }
-  };
-
-  const getButtonText = () => {
-    if (isWithdrawing) return 'Withdrawing...';
-    if (isConfirming) return 'Confirming...';
-    return 'Withdraw Now';
+    setAmount(totalDeposited.toString());
   };
 
   return (
@@ -70,7 +37,7 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
+            onClick={onClose}
             className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
           />
           
@@ -94,9 +61,8 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   </div>
                 </div>
                 <button
-                  onClick={handleClose}
-                  disabled={isProcessing}
-                  className="p-2 rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-50"
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <X className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -107,13 +73,13 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">Amount to Withdraw</span>
                   <span className="text-sm text-muted-foreground">
-                    Available: {userDeposits.toLocaleString()} USDT
+                    Available: ${totalDeposited.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
-                    <span className="text-xl">💵</span>
-                    <span className="font-semibold">USDT</span>
+                    <span className="text-xl">💰</span>
+                    <span className="font-semibold">USDC</span>
                   </div>
                   <div className="flex-1 relative">
                     <Input
@@ -121,13 +87,11 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0.00"
-                      disabled={isProcessing}
                       className="text-xl font-bold bg-transparent border-none text-right pr-16"
                     />
                     <button
                       onClick={handleMaxClick}
-                      disabled={isProcessing}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 rounded disabled:opacity-50"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 rounded"
                     >
                       MAX
                     </button>
@@ -154,7 +118,7 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">You will receive</span>
                   <span className="text-xl font-display font-bold text-foreground">
-                    {numAmount.toLocaleString()} USDT
+                    ${numAmount.toLocaleString()} USDC
                   </span>
                 </div>
               </div>
@@ -163,19 +127,18 @@ export default function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 mb-6">
                 <Info className="w-4 h-4 text-muted-foreground mt-0.5" />
                 <p className="text-xs text-muted-foreground">
-                  Your mUSDT will be burned and USDT transferred directly to your wallet. 
-                  Withdrawals are instant on Monad.
+                  Withdrawals are instant on Monad. Your funds will be transferred 
+                  directly to your connected wallet.
                 </p>
               </div>
 
               {/* Action Button */}
               <Button
                 onClick={handleWithdraw}
-                disabled={numAmount <= 0 || numAmount > userDeposits || isProcessing}
+                disabled={numAmount <= 0 || numAmount > totalDeposited}
                 className="w-full btn-secondary h-14 text-lg font-semibold border-accent/50 hover:border-accent"
               >
-                {isProcessing && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
-                {getButtonText()}
+                Withdraw Now
               </Button>
             </div>
           </motion.div>

@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useWalletStore } from '@/store/walletStore';
-import { useSyncVaultData } from '@/hooks/useVaultContract';
 import WalletConnect from '@/components/wallet/WalletConnect';
 import SmartBasketCard from '@/components/dashboard/SmartBasketCard';
 import AllocationChart from '@/components/dashboard/AllocationChart';
@@ -22,9 +21,6 @@ export default function Dashboard() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [showAllocation, setShowAllocation] = useState(false);
-  
-  // Sync on-chain data with store
-  useSyncVaultData();
 
   // Simulate optimizer activity
   useEffect(() => {
